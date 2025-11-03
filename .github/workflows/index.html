@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriGo - Planifica tu Comida Semanal y Diaria</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif;
+            background-color: #f0fdf4; 
+            background-image: 
+                radial-gradient(at 20% 25%, hsla(140, 50%, 80%, 0.3) 0px, transparent 50%),
+                radial-gradient(at 80% 20%, hsla(190, 60%, 80%, 0.3) 0px, transparent 50%),
+                radial-gradient(at 50% 80%, hsla(50, 60%, 85%, 0.3) 0px, transparent 50%);
+        }
+        
+        .logo-gradient {
+            background-image: linear-gradient(to right, #4ade80, #16a34a);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .nav-link.active { color: #22c55e; font-weight: 600; }
+        .filter-btn.active { background-color: #22c55e; color: white; border-color: #22c55e; }
+        .meal-card-selected {
+            box-shadow: 0 0 0 2px #22c55e; 
+            border-color: #22c55e;
+        }
+        
+        .page { display: none; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .page.active { animation: fadeIn 0.5s ease-in-out; }
+        #cart-sidebar, #meal-selector-modal { transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out; }
+        .meal-slot { transition: all 0.2s ease-in-out; }
+        .meal-slot:hover { transform: scale(1.03); box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .food-type-content {
+            transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out;
+            max-height: 0;
+            overflow: hidden;
+        }
+        .food-type-content.open {
+            max-height: 2500px; /* Aumentado para acomodar más contenido */
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
+            <a href="#" class="text-2xl font-bold nav-link flex items-center gap-2" data-page="home">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 256 256" class="text-green-500" fill="currentColor">
+                    <path d="M128,24A104,104,0,1,0,232,128,104.2,104.2,0,0,0,128,24Zm50.3,104.7-40,40a8.1,8.1,0,0,1-11.4,0,8.2,8.2,0,0,1-1.3-8.7,8,8,0,0,1,7.3-4.7H140V92a8,8,0,0,1,16,0v71.3l28.7-28.7a8,8,0,1,1,11.3,11.4l-.3.3ZM100,172V92a8,8,0,0,0-16,0v8.7L55.3,72a8,8,0,0,0-11.3,11.3l40,40A8.1,8.1,0,0,0,95.3,128,8,8,0,0,0,100,123.3V92a8,8,0,0,1,16,0v71.3L87.3,132a8,8,0,0,0-11.3,11.3l40,40a8.2,8.2,0,0,0,11.4,0,8,8,0,0,0,0-11.3Z" transform="rotate(10 128 128)" />
+                </svg>
+                <span class="logo-gradient">NutriGo</span>
+            </a>
+            <div class="hidden md:flex items-center space-x-8">
+                <a href="#" class="nav-link text-gray-600 hover:text-green-500 active" data-page="home">Inicio</a>
+                <a href="#" class="nav-link text-gray-600 hover:text-green-500" data-page="food-types">Tipos de Comida</a>
+                <a href="#" class="nav-link text-gray-600 hover:text-green-500" data-page="planner">Planificador</a>
+                <a href="#" class="nav-link text-gray-600 hover:text-green-500" data-page="contacto">Contacto</a>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="#" class="hidden md:block text-gray-600 hover:text-green-500 nav-link" data-page="auth">Ingresar</a>
+                <button id="toggle-cart-btn" class="relative text-gray-600 hover:text-green-500" aria-label="Abrir carro de compras">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle>
+                        <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.16"></path>
+                    </svg>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-amber-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span> </button>
+                <button class="md:hidden" id="mobile-menu-button" aria-label="Abrir menú móvil">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="4" x2="20" y1="12" y2="12"></line><line x1="4" x2="20" y1="6" y2="6"></line><line x1="4" x2="20" y1="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </nav>
+        <div class="hidden md:hidden" id="mobile-menu">
+            <a href="#" class="block py-2 px-4 text-sm hover:bg-gray-100 nav-link-mobile" data-page="home">Inicio</a>
+            <a href="#" class="block py-2 px-4 text-sm hover:bg-gray-100 nav-link-mobile" data-page="food-types">Tipos de Comida</a>
+            <a href="#" class="block py-2 px-4 text-sm hover:bg-gray-100 nav-link-mobile" data-page="planner">Planificador</a>
+            <a href="#" class="block py-2 px-4 text-sm hover:bg-gray-100 nav-link-mobile" data-page="contacto">Contacto</a>
+            <a href="#" class="block py-2 px-4 text-sm hover:bg-gray-100 nav-link-mobile" data-page="auth">Ingresar</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 sm:px-6 py-8 md:py-12">
+        <section id="home" class="page active">
+            <div class="text-center">
+                <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 leading-tight">La energía que necesitas, <br class="hidden md:block"> <span class="text-green-500">directo a tu escritorio.</span></h1>
+                <p class="mt-4 text-base md:text-lg text-gray-600 max-w-2xl mx-auto">Comida deliciosa y nutritiva diseñada para potenciar tu día de trabajo, ya sea en casa o en la oficina.</p>
+                <button id="start-planning-btn" class="mt-8 px-8 py-3 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-all duration-300 transform hover:scale-105">
+                    Empezar a Planificar
+                </button>
+            </div>
+            <div class="mt-12">
+                <img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop" 
+                     alt="Plato de comida saludable y colorida" 
+                     class="mx-auto rounded-xl shadow-2xl w-full max-w-4xl object-cover h-64 md:h-96">
+            </div>
+            <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                <div class="bg-white/90 backdrop-blur-md p-6 rounded-lg shadow-lg">
+                    <img src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=2070&auto=format&fit=crop" alt="Variedad de platos saludables" class="w-full h-40 object-cover rounded-lg mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">Variedad para todos</h3>
+                    <p class="mt-2 text-gray-600">Opciones vegetarianas, veganas y balanceadas para cada gusto.</p>
+                </div>
+                <div class="bg-white/90 backdrop-blur-md p-6 rounded-lg shadow-lg">
+                    <img src="https://images.unsplash.com/photo-1594499468121-f45e83e3e696?q=80&w=2070&auto=format&fit=crop" alt="Repartidor de comida en moto" class="w-full h-40 object-cover rounded-lg mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">Entrega Rápida</h3>
+                    <p class="mt-2 text-gray-600">Recibe tu pedido justo a tiempo para tu descanso, sin interrupciones.</p>
+                </div>
+                <div class="bg-white/90 backdrop-blur-md p-6 rounded-lg shadow-lg">
+                    <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1974&auto=format&fit=crop" alt="Canasta con vegetales frescos" class="w-full h-40 object-cover rounded-lg mb-4">
+                    <h3 class="text-xl font-semibold text-gray-800">Ingredientes Frescos</h3>
+                    <p class="mt-2 text-gray-600">Cocinamos cada día con productos locales y de la mejor calidad.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="food-types" class="page">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900">Descubre Tu Estilo de Comida</h2>
+                <p class="mt-2 text-gray-600">Haz clic en una categoría para ver los menús de ejemplo.</p>
+            </div>
+            <div id="food-types-accordion" class="space-y-4 max-w-4xl mx-auto">
+            </div>
+        </section>
+
+        <section id="planner" class="page">
+            <div class="text-center mb-6">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900">Tu Planificador de Comidas</h2>
+                <p class="mt-2 text-gray-600">Organiza tu alimentación de forma diaria o semanal.</p>
+            </div>
+            <div class="flex justify-center bg-gray-200 rounded-full p-1 max-w-xs sm:max-w-sm mx-auto mb-8">
+                <button id="planner-view-weekly" class="planner-view-btn w-1/2 py-2 text-sm font-semibold rounded-full bg-white text-green-500 shadow">Semanal</button>
+                <button id="planner-view-daily" class="planner-view-btn w-1/2 py-2 text-sm font-semibold rounded-full">Diario</button>
+            </div>
+            
+            <div class="max-w-5xl mx-auto mb-8 p-4 bg-white/90 backdrop-blur-md rounded-lg shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                    <div>
+                        <label class="font-semibold text-gray-700">Preferencias:</label>
+                        <div id="filters" class="flex flex-wrap gap-2 mt-2">
+                            <button class="filter-btn px-3 py-1.5 sm:px-4 sm:py-2 border rounded-full text-sm font-semibold" data-filter="vegetariano">🥦 Vegetariano</button>
+                            <button class="filter-btn px-3 py-1.5 sm:px-4 sm:py-2 border rounded-full text-sm font-semibold" data-filter="vegano">🌱 Vegano</button>
+                            <button class="filter-btn px-3 py-1.5 sm:px-4 sm:py-2 border rounded-full text-sm font-semibold" data-filter="sin-gluten">🌾 Sin Gluten</button>
+                            <button class="filter-btn px-3 py-1.5 sm:px-4 sm:py-2 border rounded-full text-sm font-semibold" data-filter="keto">🥩 Keto</button>
+                            <button class="filter-btn px-3 py-1.5 sm:px-4 sm:py-2 border rounded-full text-sm font-semibold" data-filter="sin-azucar">🚫 Sin Azúcar</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="allergy-input" class="font-semibold text-gray-700">Evitar Alérgenos:</label>
+                        <input type="text" id="allergy-input" class="w-full px-4 py-2 border rounded-lg mt-2" placeholder="Ej: lactosa, nueces...">
+                    </div>
+                </div>
+            </div>
+
+            <div id="weekly-planner-container">
+                 <div id="weekly-planner" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 md:gap-6"></div>
+            </div>
+            <div id="daily-planner-container" class="hidden">
+                <div class="max-w-2xl mx-auto bg-white/90 backdrop-blur-md p-6 rounded-xl shadow-lg space-y-4">
+                    <h3 id="daily-planner-title" class="text-2xl font-bold text-center"></h3>
+                    <div id="daily-planner" class="space-y-3"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="contacto" class="page">
+             <div class="max-w-2xl mx-auto">
+                 <div class="text-center mb-12"><h2 class="text-3xl md:text-4xl font-bold text-gray-900">Hablemos</h2><p class="mt-2 text-gray-600">¿Tienes alguna pregunta o sugerencia? Nos encantaría escucharte.</p></div>
+                 <div class="bg-white/90 backdrop-blur-md p-6 md:p-8 rounded-lg shadow-lg">
+                     <form id="contact-form">
+                         <div class="mb-4"><label for="name" class="block text-gray-700 font-semibold mb-2">Nombre</label><input type="text" id="name" name="name" class="w-full px-4 py-2 border rounded-lg" required></div>
+                         <div class="mb-4"><label for="email" class="block text-gray-700 font-semibold mb-2">Correo Electrónico</label><input type="email" id="email" name="email" class="w-full px-4 py-2 border rounded-lg" required></div>
+                         <div class="mb-6"><label for="message" class="block text-gray-700 font-semibold mb-2">Mensaje</label><textarea id="message" name="message" rows="4" class="w-full px-4 py-2 border rounded-lg" required></textarea></div>
+                         <div class="text-center"><button type="submit" class="w-full sm:w-auto px-8 py-3 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600">Enviar Mensaje</button></div>
+                     </form>
+                 </div>
+            </div>
+        </section>
+        
+        <section id="auth" class="page">
+            <div class="max-w-md mx-auto"><div class="bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-xl shadow-lg"><div class="flex border-b mb-6"><button id="login-tab" class="flex-1 py-2 text-center font-semibold border-b-2 border-green-500 text-green-500">Iniciar Sesión</button><button id="register-tab" class="flex-1 py-2 text-center font-semibold text-gray-500">Crear Cuenta</button></div><form id="login-form"><h2 class="text-2xl font-bold text-center mb-6">Bienvenido</h2><div class="mb-4"><label for="login-email" class="block text-gray-700 font-semibold mb-2">Correo</label><input type="email" id="login-email" name="login-email" class="w-full px-4 py-2 border rounded-lg" required></div><div class="mb-6"><label for="login-password" class="block text-gray-700 font-semibold mb-2">Contraseña</label><input type="password" id="login-password" name="login-password" class="w-full px-4 py-2 border rounded-lg" required></div><button type="submit" class="w-full px-8 py-3 bg-green-500 text-white font-semibold rounded-lg">Ingresar</button></form><form id="register-form" class="hidden"><h2 class="text-2xl font-bold text-center mb-6">Crea tu Cuenta</h2><div class="mb-4"><label for="register-name" class="block text-gray-700 font-semibold mb-2">Nombre</label><input type="text" id="register-name" name="register-name" class="w-full px-4 py-2 border rounded-lg" required></div><div class="mb-4"><label for="register-email" class="block text-gray-700 font-semibold mb-2">Correo</label><input type="email" id="register-email" name="register-email" class="w-full px-4 py-2 border rounded-lg" required></div><div class="mb-6"><label for="register-password" class="block text-gray-700 font-semibold mb-2">Contraseña</label><input type="password" id="register-password" name="register-password" class="w-full px-4 py-2 border rounded-lg" required></div><button type="submit" class="w-full px-8 py-3 bg-lime-500 text-white font-semibold rounded-lg hover:bg-lime-600">Crear Cuenta</button></form></div></div>
+        </section>
+
+        <section id="checkout" class="page">
+            <h2 class="text-3xl font-bold text-center mb-8">Finalizar Planificación</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+                <div class="lg:col-span-2 bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-xl shadow-lg">
+                    <form id="checkout-form">
+                        <h3 class="text-xl font-semibold mb-4 border-b pb-2">1. Datos de Envío</h3>
+                        <div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">¿Dónde entregamos?</label>
+                            <div class="flex gap-4"><button type="button" class="delivery-btn flex-1 p-3 border-2 border-green-500 rounded-lg text-green-500 font-semibold">Casa</button><button type="button" class="delivery-btn flex-1 p-3 border rounded-lg">Oficina</button></div></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6"><input type="text" name="checkout-fullname" placeholder="Nombre Completo" class="w-full px-4 py-2 border rounded-lg" required><input type="email" name="checkout-email" placeholder="Correo Electrónico" class="w-full px-4 py-2 border rounded-lg" required></div>
+                        <div class="mb-6"><input type="text" name="checkout-address" placeholder="Dirección de Entrega" class="w-full px-4 py-2 border rounded-lg" required></div>
+                        
+                        <h3 class="text-xl font-semibold mb-4 mt-8 border-b pb-2">2. Medio de Pago</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center">
+                                <input id="credit-card-radio" name="payment-method" type="radio" class="h-4 w-4 text-green-500" checked>
+                                <label for="credit-card-radio" class="ml-3 block text-sm font-medium">Tarjeta de Crédito / Débito</label>
+                            </div>
+                            <div id="credit-card-details" class="space-y-4 ml-7">
+                                <input type="text" name="card-number" placeholder="Número de la tarjeta" class="w-full px-4 py-2 border rounded-lg">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <input type="text" name="card-expiry" placeholder="MM/AA" class="sm:col-span-1 w-full px-4 py-2 border rounded-lg">
+                                    <input type="text" name="card-cvc" placeholder="CVC" class="sm:col-span-2 w-full px-4 py-2 border rounded-lg">
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <input id="pay-on-delivery-radio" name="payment-method" type="radio" class="h-4 w-4 text-green-500">
+                                <label for="pay-on-delivery-radio" class="ml-3 block text-sm font-medium">Pagar al Recibir (Efectivo o Tarjeta)</label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-xl shadow-lg h-fit">
+                    <h3 class="text-xl font-semibold mb-4 border-b pb-2">Resumen del Plan</h3>
+                    <div id="checkout-summary" class="space-y-2 mb-4 text-sm"></div>
+                    <div class="border-t pt-4 space-y-2"><div class="flex justify-between"><span>Subtotal</span><span id="checkout-subtotal">€0</span></div><div class="flex justify-between"><span>Envío</span><span id="checkout-shipping">€0</span></div><div class="flex justify-between font-bold text-lg"><span>Total</span><span id="checkout-total">€0</span></div></div>
+                    <button type="submit" form="checkout-form" class="mt-6 w-full px-8 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600">Pagar y Confirmar Plan</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="cart-sidebar" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 transform translate-x-full">
+        <div class="flex flex-col h-full">
+            <div class="flex justify-between items-center p-4 border-b"><h2 class="text-xl font-bold">Tu Plan Actual</h2><button id="cart-close-btn" class="text-gray-600" aria-label="Cerrar carro de compras"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+            <div id="cart-items" class="flex-grow p-4 overflow-y-auto"></div>
+            <div class="p-4 border-t bg-gray-50"><div class="flex justify-between font-semibold mb-4"><span>Subtotal:</span><span id="cart-subtotal">€0</span></div><button id="checkout-button" class="w-full px-6 py-3 bg-green-500 text-white font-semibold rounded-lg disabled:bg-gray-400" disabled>Finalizar Plan</button></div>
+        </div>
+    </div>
+    <div id="cart-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
+
+    <div id="meal-selector-modal" class="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4 hidden opacity-0">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b"><h3 id="modal-title" class="text-lg sm:text-xl font-bold">Elige tu comida</h3><button id="modal-close-btn" class="text-gray-500 hover:text-gray-800 text-2xl font-bold">&times;</button></div>
+            <div id="modal-body" class="p-4 sm:p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            <div class="p-4 border-t flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 bg-gray-50 rounded-b-xl"><button id="modal-cancel-btn" class="px-6 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancelar</button><button id="confirm-selection-btn" class="px-6 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600">Añadir al Plan</button></div>
+        </div>
+    </div>
+
+    <div id="cart-notification" class="fixed bottom-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-xl transform translate-x-[120%] transition-transform duration-500 ease-in-out">¡Plan actualizado!</div>
+    
+    <script>
+    //<-- INICIO DEL SCRIPT COMPLETO -->
+    document.addEventListener('DOMContentLoaded', () => { initializeApp(); });
+
+    const foodTypesData = {
+        'vegetariano':{emoji:"🥦",name:"Menú Vegetariano",desc:"Sin carne ni pescado. Pueden incluir huevos y lácteos.",menu:{desayunos:[{name:"Huevos a la copa con tostadas integrales",desc:"Dos huevos cocidos a tu gusto, acompañados de tostadas de pan integral con palta y una pizca de merquén."},{name:"Yogur natural con granola y frutos rojos",desc:"Un bol de yogur griego o natural, cubierto con granola casera, frutillas, arándanos y un chorrito de miel."}],almuerzos:[{name:"Lentejas guisadas con arroz",desc:"Un plato clásico y contundente de lentejas cocinadas con zanahoria, pimentón y cebolla, servido sobre una base de arroz blanco."},{name:"Pastel de papas vegetariano",desc:"Relleno de pino de soya texturizada y vegetales, cubierto con un puré de papas dorado al horno."},{name:'Ensalada César con crutones y "no-pollo"',desc:"Mix de lechugas con el clásico aderezo César, queso parmesano, crutones al ajo y trozos de seitán o champiñones salteados."},{name:"Wrap de hummus y falafel",desc:"Un pan pita o tortilla relleno con hummus, bolitas de falafel, lechuga, tomate, pepino y salsa de yogur con menta."}],cenas:[{name:"Crema de zapallo asado con queso de cabra",desc:"Sopa cremosa hecha con zapallo camote asado, servida con crutones y trocitos de queso de cabra."},{name:"Pizza casera con rúcula y champiñones",desc:"Masa de pizza con salsa de tomate, queso mozzarella, champiñones salteados y rúcula fresca."}]}},
+        'vegano':{emoji:"🌱",name:"Menú Vegano",desc:"Sin ningún producto de origen animal (carne, pescado, lácteos, huevos, miel).",menu:{desayunos:[{name:'Avena "overnight" con leche de almendras',desc:"Avena remojada durante la noche en leche de almendras con semillas de chía, cacao en polvo y sirope de agave."},
+        {name:'Tostadas con "revuelto" de tofu',desc:"Tofu firme desmenuzado y salteado con cúrcuma, sal negra, cebolla y espinaca."}],almuerzos:[{name:"Curry de garbanzos y espinacas",desc:"Un curry cremoso con base de leche de coco, garbanzos, espinacas frescas, tomate y especias indias. Servido con arroz basmati."},{name:"Budda Bowl completo",desc:"Un bol con base de quínoa, acompañado de porotos negros, choclo, palta en cubos, pimentón asado y aderezo de tahini."},{name:"Hamburguesas de lentejas o champiñones",desc:"Hamburguesa casera en pan vegano con lechuga, tomate, cebolla morada y mayonesa vegana."},{name:"Ceviche de champiñones y cochayuyo",desc:'Champiñones y cochayuyo "curtidos" en jugo de limón con cebolla morada, cilantro y un toque de ají verde.'}],cenas:[{name:"Lasaña de berenjenas y boloñesa de lentejas",desc:'Capas de láminas de berenjena asada intercaladas con una sabrosa salsa boloñesa hecha con lentejas.'},{name:'Tacos de coliflor "buffalo"',desc:"Floretes de coliflor rebozados y horneados, bañados en salsa picante. Servidos en tortillas de maíz con repollo y crema de palta."}]}},
+        'sin-gluten':{emoji:"🌾🚫",name:"Menú Sin Gluten",desc:"Sin trigo, cebada, centeno ni avena contaminada.",menu:{desayunos:[{name:"Panqueques de harina de avena sin gluten",desc:"Panqueques hechos con avena certificada sin gluten, plátano molido y huevo. Servidos con fruta fresca."},{name:"Arepas con perico",desc:"Arepas de harina de maíz precocida, rellenas con un revuelto de huevo, tomate y cebolla."}],almuerzos:[{name:"Pollo arvejado con quínoa",desc:"Un guiso casero de trozos de pollo con arvejas, zanahoria y cebolla, acompañado de quínoa."},{name:"Pastel de choclo en paila individual",desc:"El clásico pastel de choclo chileno, naturalmente sin gluten, con su pino de carne y pastelera de maíz dulce."},{name:"Fideos de arroz salteados con verduras y camarones",desc:"Un salteado de fideos de arroz con brócoli, pimentón, zanahoria y camarones, con salsa de soya sin gluten (tamari)."},{name:"Ensalada de garbanzos y atún",desc:"Una ensalada fría con garbanzos cocidos, atún en conserva, pimentón, apio y cebolla morada."}],cenas:[{name:"Salmón a la plancha con puré de coliflor",desc:"Filete de salmón sellado a la plancha, servido sobre un cremoso puré de coliflor que reemplaza al de papa."},{name:"Sopa de tortilla",desc:"Caldo de tomate y pollo, servido con tiras de tortilla de maíz frita, pollo desmenuzado, queso, palta y crema."}]}},
+        'sin-lactosa':{emoji:"🥛🚫",name:"Menú Sin Lactosa",desc:"Usa productos deslactosados o alternativas vegetales.",menu:{desayunos:[{name:"Café con leche vegetal y tostadas con mermelada",desc:"Tu café favorito preparado con leche de almendras, avena o soya, y tostadas con mantequilla sin lactosa."},
+        {name:"Batido de frutas tropicales",desc:"Mango, piña y plátano licuados con leche de coco y un toque de jugo de naranja."}],almuerzos:[{name:"Charquicán con huevo frito",desc:"Guiso tradicional chileno de papas, zapallo y carne, coronado con un huevo frito."},{name:"Pechuga de pavo al horno con papas doradas",desc:"Pechuga de pavo marinada en hierbas y cocinada al horno, acompañada de papas doradas al romero."}],cenas:[{name:"Lasaña con salsa bechamel vegetal",desc:"Lasaña de carne o verduras donde la salsa bechamel se prepara con leche de avena y margarina sin lactosa."},{name:"Risotto de champiñones",desc:"Un risotto cremoso preparado con caldo de verduras, y para la cremosidad final, aceite de oliva y levadura nutricional."}]}},
+        'keto':{emoji:"🥩🥑",name:"Menú Keto (Cetogénico)",desc:"Bajo en carbohidratos, alto en grasas saludables y proteínas.",menu:{desayunos:[{name:"Huevos revueltos con tocino y palta",desc:"Huevos revueltos cocinados en mantequilla, acompañados de tocino crujiente y medio aguacate en rodajas."},{name:'"Keto-café" o Bulletproof coffee',desc:"Café negro de buena calidad licuado con mantequilla ghee y aceite MCT o de coco."}],almuerzos:[{name:"Ensalada Cobb",desc:"Base de lechuga con pollo desmenuzado, tocino, huevo duro, palta, tomate y queso azul, con aderezo cremoso."},{name:'Pollo al curry con "arroz" de coliflor',desc:"Trozos de pollo en salsa de curry y leche de coco, servido sobre coliflor rallada y salteada."}],cenas:[{name:"Zoodles con salsa boloñesa",desc:"Fideos de zapallo italiano (zucchini) cubiertos con una rica salsa de carne molida y tomate, baja en azúcar."},{name:"Costillas de cerdo al horno con ensalada de repollo",desc:"Costillas de cerdo cocinadas lentamente con especias secas, acompañadas de una ensalada cremosa de repollo (coleslaw)."}]}},
+        'light':{emoji:"⚖️",name:"Menú Light",desc:"Menos azúcar o grasa, opciones más ligeras y controladas en calorías.",menu:{desayunos:[{name:"Claras de huevo revueltas con espinacas y tomate",desc:"Un revuelto hecho solo con claras, acompañado de vegetales frescos y una tostada de pan integral."},{name:"Yogur natural descremado con fruta picada",desc:"Un bol de yogur sin grasa y sin azúcar, endulzado naturalmente con trozos de fruta."}],almuerzos:[{name:"Pechuga de pollo a la plancha con ensalada mixta",desc:"150g de pechuga de pollo grillada, acompañada de una abundante ensalada de hojas verdes, tomate, pepino y zanahoria."},{name:"Merluza al vapor con brócoli y coliflor",desc:"Filete de merluza cocinado al vapor con un toque de limón y hierbas, junto a un mix de brócoli y coliflor."}],cenas:[{name:"Sopa de verduras casera",desc:"Una sopa reconfortante hecha con una gran variedad de verduras frescas y un caldo bajo en sodio."},{name:"Ensalada de quínoa con verduras asadas",desc:"Quínoa cocida y enfriada, mezclada con pimentones, berenjenas y zapallitos italianos asados."}]}},
+        'organico':{emoji:"🍏",name:"Menú Orgánico",desc:"Elaborado con alimentos cultivados sin pesticidas ni químicos.",menu:{desayunos:[{name:"Bol de açaí orgánico",desc:"Pulpa de açaí orgánico, licuada con plátano y leche de almendras orgánicos. Decorado con granola y bayas orgánicas."},{name:"Huevos de gallina libre orgánicos con palta",desc:"Huevos de campo revueltos, servidos sobre pan de masa madre orgánico con palta Hass orgánica."}],almuerzos:[{name:"Ensalada de lentejas orgánicas",desc:"Lentejas orgánicas mezcladas con pimentón, cebolla, zanahoria y perejil, todo orgánico."},{name:"Pollo de campo orgánico al horno",desc:"Un trutro de pollo orgánico asado con papas, camotes y cebollas, de cultivo orgánico."}],cenas:[{name:"Pescado sostenible con puré de arvejas",desc:"Filete de reineta o corvina a la plancha, servido sobre un puré verde y dulce de arvejas orgánicas."},{name:"Curry de vegetales orgánicos",desc:"Curry suave con leche de coco, brócoli, coliflor, arvejas y papas orgánicas, servido con arroz integral orgánico."}]}},
+        'tradicional':{emoji:"🍲",name:"Menú Tradicional (Chileno)",desc:"Platos representativos de la gastronomía chilena.",menu:{desayunos:[{name:"Marraqueta con palta y té",desc:"Media marraqueta crujiente con abundante palta molida y una pizca de sal."},{name:"Paila de huevo",desc:"Huevos fritos o revueltos servidos en paila de greda caliente, a veces con longaniza o tomate."}],almuerzos:[{name:"Cazuela de vacuno",desc:"Sopa contundente con un trozo de carne, papa, zapallo, choclo y porotos verdes, con arroz y cilantro."},{name:"Pastel de choclo",desc:"Pino de carne molida, pollo, huevo duro y aceitunas, cubierto por una dulce pastelera de choclo."}],cenas:[{name:"Charquicán con huevo frito",desc:"Guiso a base de papas y zapallo molidos con carne, arvejas y choclo, coronado con un huevo frito."},{name:"Lomo saltado",desc:"Trozos de lomo de vacuno salteados con cebolla, tomate y ají amarillo, servido con papas fritas y arroz."}]}},
+        'kosher':{emoji:"✡️",name:"Menú Kosher",desc:"Cumple normas judías (no mezclar carne y lácteos).",menu:{desayunos:[{name:"Shakshuka",desc:"Huevos escalfados en una salsa de tomate especiada con pimentones y cebolla. Se come con pan jalá o pita."},{name:"Blintzes de queso",desc:"Panqueques finos rellenos de una mezcla de queso cottage o ricota y un toque de azúcar."}],almuerzos:[{name:"Sopa de matzá balls (Kneidalaj)",desc:"Caldo de pollo casero (de ave kosher) con bolas de harina de matzá."},{name:'Pescado gefilte',desc:'"Albóndigas" de pescado blanco molido cocidas en caldo, servidas frías con jrein (rábano picante).'}],cenas:[{name:"Brisket de res al horno",desc:"Pecho de res cocinado lentamente con cebolla, zanahoria y vino tinto kosher. Servido con kugel de papa."},{name:"Pollo asado con tzimmes",desc:"Pollo entero asado, acompañado de tzimmes, un guiso dulce de zanahorias, camotes y ciruelas pasas."}]}},
+        'halal':{emoji:"☪️",name:"Menú Halal",desc:"Cumple normas islámicas (carne certificada Halal, sin cerdo ni alcohol).",menu:{desayunos:[{name:"Ful Medames",desc:"Un plato de habas cocidas y machacadas, aderezadas con aceite de oliva, comino, jugo de limón, ajo y perejil."},{name:"Huevos con Sujuk",desc:"Huevos fritos o revueltos con rebanadas de Sujuk, una salchicha de vacuno seca y especiada."}],almuerzos:[{name:"Shawarma de pollo en plato",desc:"Pollo marinado en especias y asado, servido en un plato con arroz, hummus, y ensalada fattoush."},{name:"Kofta Kebab con arroz",desc:"Brochetas de carne molida de vacuno o cordero Halal, sazonadas y asadas a la parrilla."}],cenas:[{name:"Tagine de vacuno con ciruelas y almendras",desc:"Un guiso marroquí agridulce cocinado lentamente con trozos de carne de vacuno Halal, ciruelas pasas y almendras."},{name:"Parrillada Mixta Halal (Mixed Grill)",desc:"Una selección de carnes Halal a la parrilla, como Shish Taouk, brochetas de cordero y Kofta."}]}}
+    };
+    
+    const menuItems = [
+        { id: 'des-veg-1', name: 'Huevos a la copa con tostadas integrales', price: 5.80, type: 'desayuno', tags: ['vegetariano', 'sin-azucar'], allergens: ['huevo', 'gluten'], img: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'des-veg-2', name: 'Yogur natural con granola y frutos rojos', price: 5.50, type: 'desayuno', tags: ['vegetariano', 'con-azucar'], allergens: ['lactosa', 'gluten', 'nueces'], img: 'https://images.unsplash.com/photo-1565895742103-51b1a551834b?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'alm-veg-1', name: 'Lentejas guisadas con arroz', price: 8.80, type: 'almuerzo', tags: ['vegetariano', 'sin-azucar'], allergens: [], img: 'https://images.unsplash.com/photo-1596797038530-2c1071d0b670?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'alm-veg-2', name: 'Pastel de papas vegetariano', price: 9.20, type: 'almuerzo', tags: ['vegetariano', 'sin-azucar'], allergens: ['lactosa'], img: 'https://images.unsplash.com/photo-1579523009100-5ab3a45c3b14?q=80&w=1962&auto=format&fit=crop' },
+        { id: 'alm-vgn-1', name: 'Curry de garbanzos y espinacas', price: 9.10, type: 'almuerzo', tags: ['vegano', 'vegetariano', 'sin-gluten', 'sin-azucar'], allergens: [], img: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?q=80&w=1971&auto=format&fit=crop' },
+        { id: 'alm-sg-2', name: 'Pastel de choclo', price: 10.20, type: 'almuerzo', tags: ['sin-gluten', 'tradicional', 'con-azucar'], allergens: ['lactosa', 'huevo'], img: 'https://images.unsplash.com/photo-1639373315822-3c494b341f33?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'alm-sg-3', name: 'Fideos de arroz salteados con camarones', price: 10.50, type: 'almuerzo', tags: ['sin-gluten', 'sin-azucar'], allergens: ['mariscos', 'soya'], img: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?q=80&w=1994&auto=format&fit=crop' },
+        { id: 'cen-sg-1', name: 'Salmón a la plancha con puré de coliflor', price: 10.80, type: 'cena', tags: ['sin-gluten', 'keto', 'sin-azucar'], allergens: ['pescado'], img: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'des-sl-1', name: 'Café con leche vegetal y tostadas', price: 5.20, type: 'desayuno', tags: ['sin-lactosa', 'vegano', 'vegetariano'], allergens: ['gluten', 'nueces'], img: 'https://images.unsplash.com/photo-1577968897966-3d4325b36def?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'alm-sl-1', name: 'Charquicán con huevo frito', price: 9.50, type: 'almuerzo', tags: ['sin-lactosa', 'tradicional', 'sin-azucar'], allergens: ['huevo'], img: 'https://images.unsplash.com/photo-1568600891621-c26c36b6e494?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'des-k-1', name: 'Huevos revueltos con tocino y palta', price: 6.80, type: 'desayuno', tags: ['keto', 'sin-gluten', 'sin-azucar'], allergens: ['huevo'], img: 'https://images.unsplash.com/photo-1582218809459-25d883f06b6e?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'alm-k-1', name: 'Ensalada Cobb', price: 10.10, type: 'almuerzo', tags: ['keto', 'sin-gluten', 'sin-azucar'], allergens: ['huevo', 'lactosa'], img: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'alm-l-1', name: 'Pechuga de pollo a la plancha con ensalada', price: 9.10, type: 'almuerzo', tags: ['light', 'keto', 'sin-gluten', 'sin-azucar'], allergens: [], img: 'https://images.unsplash.com/photo-1543339308-43e59d6b70a6?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'cen-l-1', name: 'Sopa de verduras casera', price: 7.80, type: 'cena', tags: ['light', 'vegano', 'vegetariano', 'sin-gluten', 'sin-azucar'], allergens: [], img: 'https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'des-o-1', name: 'Bol de açaí orgánico', price: 6.90, type: 'desayuno', tags: ['organico', 'vegano', 'vegetariano', 'sin-gluten', 'con-azucar'], allergens: ['nueces'], img: 'https://images.unsplash.com/photo-1590301435425-75b4c9ce1b53?q=80&w=1974&auto=format&fit=crop' },
+        { id: 'des-t-1', name: 'Marraqueta con palta y té', price: 5.10, type: 'desayuno', tags: ['tradicional', 'sin-azucar'], allergens: ['gluten'], img: 'https://images.unsplash.com/photo-1607672233608-425d53c7a956?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'alm-t-2', name: 'Porotos con riendas', price: 9.70, type: 'almuerzo', tags: ['tradicional', 'sin-azucar'], allergens: ['gluten'], img: 'https://images.unsplash.com/photo-1561626490-235d5a23f792?q=80&w=1964&auto=format&fit=crop' },
+        { id: 'des-ko-1', name: 'Shakshuka', price: 6.70, type: 'desayuno', tags: ['kosher', 'vegetariano', 'sin-azucar'], allergens: ['huevo', 'gluten'], img: 'https://images.unsplash.com/photo-1590412200988-a436970781fa?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'alm-ko-2', name: 'Falafel en pan de pita', price: 9.10, type: 'almuerzo', tags: ['kosher', 'vegano', 'vegetariano', 'sin-azucar'], allergens: ['gluten'], img: 'https://images.unsplash.com/photo-1590307399831-2782e36a47ac?q=80&w=1974&auto=format&fit=crop' },
+        { id: 'alm-ha-1', name: 'Shawarma de pollo en plato', price: 10.20, type: 'almuerzo', tags: ['halal', 'sin-azucar'], allergens: [], img: 'https://images.unsplash.com/photo-1562967914-608f82629710?q=80&w=2070&auto=format&fit=crop' },
+        { id: 'beb1', name: 'Café Americano', price: 2.50, type: 'bebestible', tags: ['vegano', 'sin-gluten', 'keto', 'sin-azucar'], allergens: [], img: 'https://images.unsplash.com/photo-1511920183353-3c2c517edd57?q=80&w=1974&auto=format&fit=crop' },
+        { id: 'beb2', name: 'Té de Hierbas', price: 2.20, type: 'bebestible', tags: ['vegano', 'sin-gluten', 'keto', 'sin-azucar'], allergens: [], img: 'https://images.unsplash.com/photo-1594751543129-79ae8de12f4b?q=80&w=1974&auto=format&fit=crop' },
+        { id: 'beb3', name: 'Jugo de Naranja Natural', price: 3.50, type: 'bebestible', tags: ['vegano', 'sin-gluten', 'con-azucar'], allergens: [], img: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?q=80&w=1974&auto=format&fit=crop' }
+    ];
+
+    let weeklyPlan = {};
+    let dailyPlan = {};
+    const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+    const mealTypes = ["desayuno", "almuerzo", "cena", "bebestible"];
+    let userPreferences = new Set();
+    let userAllergies = new Set();
+    let currentPlannerView = 'weekly'; 
+    let modalSelections = [];
+    let currentTarget = {};
+    const currencyOptions = { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 };
+    
+    function formatCurrency(value) {
+        return value.toLocaleString('es-ES', currencyOptions);
+    }
+
+    function initializeApp() {
+        const mealStructure = { desayuno: [], almuerzo: [], cena: [], bebestible: [] };
+        daysOfWeek.forEach(day => { weeklyPlan[day] = JSON.parse(JSON.stringify(mealStructure)); });
+        dailyPlan = JSON.parse(JSON.stringify(mealStructure));
+        renderFoodTypes();
+        renderPlanner();
+        setupEventListeners();
+        showPage('home');
+    }
+
+    function renderFoodTypes() {
+        const accordionContainer = document.getElementById('food-types-accordion');
+        if (!accordionContainer) return;
+        accordionContainer.innerHTML = '';
+        Object.entries(foodTypesData).forEach(([key, value]) => {
+            const itemWrapper = document.createElement('div');
+            itemWrapper.className = 'border rounded-xl overflow-hidden bg-white/90 backdrop-blur-md shadow-lg';
+            
+            let menuHtml = '';
+            if (value.menu) {
+                const createMenuSection = (title, items) => {
+                    if (!items || items.length === 0) return '';
+                    let html = `<h4 class="text-md font-bold text-gray-700 mt-4 mb-2">${title}</h4><div class="space-y-3">`;
+                    items.forEach(item => {
+                        html += `<div class="p-3 bg-gray-100/70 rounded-md"><p class="font-semibold text-green-600">${item.name}</p><p class="text-sm text-gray-600">${item.desc}</p></div>`;
+                    });
+                    return html + '</div>';
+                };
+                menuHtml += createMenuSection('☀️ Desayunos', value.menu.desayunos);
+                menuHtml += createMenuSection('🥗 Almuerzos', value.menu.almuerzos);
+                menuHtml += createMenuSection('🌙 Cenas', value.menu.cenas);
+            }
+
+            itemWrapper.innerHTML = `
+                <button class="w-full text-left p-4 hover:bg-gray-50/20 transition-colors focus:outline-none" data-key="${key}">
+                    <div class="flex items-center">
+                        <span class="text-3xl mr-4">${value.emoji}</span>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-lg text-gray-800">${value.name}</h3>
+                            <p class="text-sm text-gray-600">${value.desc}</p>
+                        </div>
+                        <svg id="arrow-${key}" class="w-6 h-6 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                </button>
+                <div id="content-${key}" class="food-type-content">
+                    <div class="p-6 border-t bg-gray-50/30">${menuHtml}</div>
+                </div>`;
+            accordionContainer.appendChild(itemWrapper);
+        });
+    }
+
+    function toggleFoodTypeAccordion(key) {
+        const targetContent = document.getElementById(`content-${key}`);
+        const isOpening = !targetContent.classList.contains('open');
+        document.querySelectorAll('.food-type-content.open').forEach(el => {
+            if (el.id !== `content-${key}`) {
+                el.classList.remove('open');
+                const otherKey = el.id.split('-')[1];
+                document.getElementById(`arrow-${otherKey}`).classList.remove('rotate-180');
+            }
+        });
+        targetContent.classList.toggle('open');
+        document.getElementById(`arrow-${key}`).classList.toggle('rotate-180');
+    }
+
+    function renderPlanner() {
+        if (currentPlannerView === 'weekly') renderWeeklyPlanner(); else renderDailyPlanner();
+    }
+
+    function renderPlannerDay(dayData, dayName, isWeekly = true) {
+        const container = document.createDocumentFragment();
+        mealTypes.forEach(mealType => {
+            const mealSlot = document.createElement('div');
+            mealSlot.className = 'meal-slot border rounded-lg p-3 cursor-pointer min-h-[80px] flex flex-col bg-white/50 hover:bg-white/90';
+            
+            const plannedMeals = dayData[mealType];
+            const mealTypeName = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+
+            if (plannedMeals.length > 0) {
+                let mealsHtml = `<p class="font-semibold text-xs capitalize text-gray-500 mb-1">${mealTypeName}</p><div class="space-y-1">`;
+                plannedMeals.forEach(meal => {
+                    mealsHtml += `<div class="flex justify-between items-start"><p class="font-bold text-green-500 text-sm truncate leading-tight flex-1 pr-2">${meal.name}</p>${!isWeekly ? `<p class="text-sm font-semibold">${formatCurrency(meal.price)}</p>` : ''}</div>`;
+                });
+                mealSlot.innerHTML = mealsHtml + '</div>';
+            } else {
+                mealSlot.innerHTML = `<div class="flex-grow flex items-center justify-center text-gray-400 hover:text-gray-700"><span class="text-sm capitalize">${mealTypeName}</span><svg class="w-5 h-5 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></div>`;
+            }
+            mealSlot.addEventListener('click', () => showMealSelector(dayName, mealType));
+            container.appendChild(mealSlot);
+        });
+        return container;
+    }
+
+    function renderWeeklyPlanner() {
+        const plannerContainer = document.getElementById('weekly-planner');
+        plannerContainer.innerHTML = '';
+        
+        daysOfWeek.forEach(day => {
+            const dayCard = document.createElement('div');
+            dayCard.className = 'bg-white/90 backdrop-blur-md shadow-lg p-4 rounded-xl space-y-3';
+            dayCard.innerHTML = `<h3 class="text-lg md:text-xl font-bold text-center border-b pb-2">${day}</h3>`;
+            dayCard.appendChild(renderPlannerDay(weeklyPlan[day], day));
+            plannerContainer.appendChild(dayCard);
+        });
+    }
+    
+    function renderDailyPlanner() {
+        const plannerContainer = document.getElementById('daily-planner');
+        const today = new Date().toLocaleDateString('es-ES', { weekday: 'long' });
+        document.getElementById('daily-planner-title').textContent = `Plan para Hoy (${today.charAt(0).toUpperCase() + today.slice(1)})`;
+        plannerContainer.innerHTML = '';
+        const dayContent = renderPlannerDay(dailyPlan, null, false);
+        dayContent.querySelectorAll('.meal-slot').forEach(slot => {
+            slot.classList.replace('p-3', 'p-4');
+        });
+        plannerContainer.appendChild(dayContent);
+    }
+
+    function showMealSelector(day, mealType) {
+        modalSelections = [];
+        currentTarget = { day, mealType };
+        const modal = document.getElementById('meal-selector-modal');
+        const mealTypeName = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+        document.getElementById('modal-title').textContent = day ? `Elige tu ${mealTypeName} para el ${day}` : `Elige tu ${mealTypeName} para hoy`;
+        
+        const modalBody = document.getElementById('modal-body');
+        modalBody.innerHTML = '';
+
+        const availableMeals = menuItems.filter(item => {
+            if (item.type !== mealType) return false;
+            if (userPreferences.size > 0 && !Array.from(userPreferences).every(pref => item.tags.includes(pref))) return false;
+            if (userAllergies.size > 0 && Array.from(userAllergies).some(allergy => item.allergens.includes(allergy))) return false;
+            return true;
+        });
+
+        if (availableMeals.length > 0) {
+            availableMeals.forEach(item => {
+                const itemCard = document.createElement('div');
+                itemCard.className = 'flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-100 transition-colors';
+                itemCard.innerHTML = `<img src="${item.img}" class="w-16 h-16 rounded-md object-cover mr-4" alt="${item.name}"><div class="flex-1"><p class="font-bold">${item.name}</p><p class="text-gray-600">${formatCurrency(item.price)}</p></div>`;
+                itemCard.addEventListener('click', () => toggleModalSelection(item.id, itemCard));
+                modalBody.appendChild(itemCard);
+            });
+        } else {
+             modalBody.innerHTML = `<p class="text-center text-gray-500 col-span-1 md:col-span-2">No hay opciones con los filtros seleccionados.</p>`;
+        }
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.classList.remove('opacity-0'), 10);
+    }
+
+    function toggleModalSelection(itemId, cardElement) {
+        cardElement.classList.toggle('meal-card-selected');
+        if (modalSelections.includes(itemId)) {
+            modalSelections = modalSelections.filter(id => id !== itemId);
+        } else {
+            modalSelections.push(itemId);
+        }
+    }
+    
+    function confirmMealSelection() {
+        const { day, mealType } = currentTarget;
+        const targetPlan = day ? weeklyPlan[day] : dailyPlan;
+        modalSelections.forEach(itemId => {
+            const mealToAdd = menuItems.find(item => item.id === itemId);
+            if (mealToAdd && !targetPlan[mealType].find(m => m.id === itemId)) {
+                 targetPlan[mealType].push({ ...mealToAdd, quantity: 1 });
+            }
+        });
+        closeMealSelector();
+        renderPlanner();
+        updatePlanSummary();
+        const notification = document.getElementById('cart-notification');
+        notification.classList.remove('translate-x-[120%]');
+        setTimeout(() => notification.classList.add('translate-x-[120%]'), 2000);
+    }
+
+    function closeMealSelector() {
+        const modal = document.getElementById('meal-selector-modal');
+        modal.classList.add('opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
+    
+    function changeQuantity(planType, day, mealType, itemId, change) {
+        const plan = planType === 'weekly' ? weeklyPlan[day] : dailyPlan;
+        const mealIndex = plan[mealType].findIndex(meal => meal.id === itemId);
+        if (mealIndex === -1) return;
+        plan[mealType][mealIndex].quantity += change;
+        if (plan[mealType][mealIndex].quantity <= 0) {
+            plan[mealType].splice(mealIndex, 1);
+        }
+        renderPlanner();
+        updatePlanSummary();
+    }
+    
+    function updatePlanSummary() {
+        const cartItemsContainer = document.getElementById('cart-items');
+        cartItemsContainer.innerHTML = '';
+        let subtotal = 0;
+        let totalItems = 0;
+
+        const renderPlanToCart = (planData, title, planType) => {
+            let planHasItems = false;
+            let planHtml = '';
+            
+            Object.entries(planData).forEach(([day, dayMeals]) => {
+                let dayHasItems = Object.values(dayMeals).some(arr => arr.length > 0);
+                if (!dayHasItems) return;
+                
+                planHasItems = true;
+                planHtml += `<div class="py-2 border-b"><p class="font-semibold text-sm">${planType === 'weekly' ? day : 'Plan Diario'}</p></div><div class="space-y-2 py-2">`;
+                
+                Object.entries(dayMeals).forEach(([mealType, meals]) => {
+                    meals.forEach(meal => {
+                        totalItems += meal.quantity;
+                        subtotal += meal.price * meal.quantity;
+                        const dayKey = planType === 'weekly' ? `'${day}'` : 'null';
+
+                        planHtml += `
+                        <div class="flex justify-between items-center text-sm pl-2 py-1 group">
+                            <div>
+                                <p class="text-gray-800 font-semibold">${meal.name}</p>
+                                <p class="text-xs capitalize text-gray-500">${mealType}</p>
+                                <p class="text-sm font-bold text-green-500">${formatCurrency(meal.price * meal.quantity)}</p>
+                            </div>
+                            <div class="flex items-center border rounded-lg bg-white shadow-sm">
+                                <button onclick="changeQuantity('${planType}', ${dayKey}, '${mealType}', '${meal.id}', -1)" class="px-3 py-1 text-lg font-bold text-gray-600 hover:bg-gray-100 rounded-l-lg">-</button>
+                                <span class="px-3 py-1 font-bold">${meal.quantity}</span>
+                                <button onclick="changeQuantity('${planType}', ${dayKey}, '${mealType}', '${meal.id}', 1)" class="px-3 py-1 text-lg font-bold text-gray-600 hover:bg-gray-100 rounded-r-lg">+</button>
+                            </div>
+                        </div>`;
+                    });
+                });
+                planHtml += '</div>';
+            });
+
+            if (planHasItems) {
+                cartItemsContainer.innerHTML += `<h3 class="text-lg font-bold text-green-500 mt-4 first:mt-0">${title}</h3>` + planHtml;
+            }
+        };
+
+        renderPlanToCart(weeklyPlan, 'Plan Semanal', 'weekly');
+        renderPlanToCart({ 'Hoy': dailyPlan }, 'Plan Diario', 'daily');
+
+        if (totalItems === 0) {
+            cartItemsContainer.innerHTML = '<p class="text-center text-gray-500 mt-8">Aún no has planificado comidas.</p>';
+        }
+
+        document.getElementById('cart-subtotal').textContent = formatCurrency(subtotal);
+        document.getElementById('cart-count').textContent = totalItems;
+        document.getElementById('checkout-button').disabled = totalItems === 0;
+    }
+
+    function goToCheckout() {
+        toggleCart();
+        showPage('checkout');
+        updateCheckoutSummary();
+    }
+    
+    function updateCheckoutSummary() {
+        let subtotal = 0;
+        let weeklyItemsCount = 0;
+        let dailyItemsCount = 0;
+
+        Object.values(weeklyPlan).forEach(day => Object.values(day).forEach(meals => meals.forEach(meal => {
+            weeklyItemsCount += meal.quantity;
+            subtotal += meal.price * meal.quantity;
+        })));
+        Object.values(dailyPlan).forEach(meals => meals.forEach(meal => {
+            dailyItemsCount += meal.quantity;
+            subtotal += meal.price * meal.quantity;
+        }));
+        
+        const totalItems = weeklyItemsCount + dailyItemsCount;
+        const weeklyShipping = 5.00;
+        const dailyShipping = 2.50;
+        let shippingCost = 0;
+        
+        if (weeklyItemsCount > 0) shippingCost = weeklyShipping;
+        else if (dailyItemsCount > 0) shippingCost = dailyShipping;
+
+        document.getElementById('checkout-summary').innerHTML = `<p class="text-gray-600">${totalItems} items en tu plan.</p>`;
+        document.getElementById('checkout-subtotal').textContent = formatCurrency(subtotal);
+        document.getElementById('checkout-shipping').textContent = formatCurrency(shippingCost);
+        document.getElementById('checkout-total').textContent = formatCurrency(subtotal + shippingCost);
+    }
+
+    function showPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId)?.classList.add('active');
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.page === pageId));
+        window.scrollTo(0, 0);
+    }
+
+    function closeMobileMenu() { document.getElementById('mobile-menu').classList.add('hidden'); }
+    function toggleCart() {
+        const cart = document.getElementById('cart-sidebar');
+        const overlay = document.getElementById('cart-overlay');
+        const isOpening = cart.classList.contains('translate-x-full');
+        if (isOpening) {
+            cart.classList.remove('translate-x-full');
+            overlay.classList.remove('hidden');
+        } else {
+            cart.classList.add('translate-x-full');
+            overlay.classList.add('hidden');
+        }
+    }
+
+    function setupEventListeners() {
+        document.querySelectorAll('.nav-link, .nav-link-mobile').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                showPage(e.currentTarget.dataset.page);
+                if (link.classList.contains('nav-link-mobile')) closeMobileMenu();
+            });
+        });
+        document.getElementById('start-planning-btn').addEventListener('click', () => showPage('planner'));
+        document.getElementById('mobile-menu-button').addEventListener('click', () => document.getElementById('mobile-menu').classList.toggle('hidden'));
+        document.getElementById('toggle-cart-btn').addEventListener('click', toggleCart);
+        document.getElementById('cart-close-btn').addEventListener('click', toggleCart);
+        document.getElementById('cart-overlay').addEventListener('click', toggleCart);
+        document.getElementById('checkout-button').addEventListener('click', goToCheckout);
+        document.getElementById('modal-close-btn').addEventListener('click', closeMealSelector);
+        document.getElementById('modal-cancel-btn').addEventListener('click', closeMealSelector);
+        document.getElementById('confirm-selection-btn').addEventListener('click', confirmMealSelection);
+        document.getElementById('food-types-accordion').addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-key]');
+            if (button) toggleFoodTypeAccordion(button.dataset.key);
+        });
+        
+        const loginTab = document.getElementById('login-tab'), registerTab = document.getElementById('register-tab');
+        const loginForm = document.getElementById('login-form'), registerForm = document.getElementById('register-form');
+        loginTab.addEventListener('click', () => { loginTab.classList.add('border-green-500', 'text-green-500'); registerTab.classList.remove('border-green-500', 'text-green-500'); loginForm.classList.remove('hidden'); registerForm.classList.add('hidden'); });
+        registerTab.addEventListener('click', () => { registerTab.classList.add('border-green-500', 'text-green-500'); loginTab.classList.remove('border-green-500', 'text-green-500'); registerForm.classList.remove('hidden'); loginForm.classList.add('hidden'); });
+        
+        document.getElementById('contact-form').addEventListener('submit', (e) => { e.preventDefault(); alert('¡Gracias!'); e.target.reset(); });
+        document.getElementById('checkout-form').addEventListener('submit', (e) => { e.preventDefault(); alert('¡Plan confirmado!'); initializeApp(); updatePlanSummary(); showPage('home'); });
+        document.getElementById('login-form').addEventListener('submit', (e) => { e.preventDefault(); alert('¡Bienvenido!'); showPage('planner'); });
+        document.getElementById('register-form').addEventListener('submit', (e) => { e.preventDefault(); alert('¡Cuenta creada!'); showPage('planner'); });
+        
+        document.querySelectorAll('.delivery-btn').forEach(btn => btn.addEventListener('click', e => { document.querySelectorAll('.delivery-btn').forEach(b => b.classList.remove('border-green-500', 'text-green-500')); e.currentTarget.classList.add('border-green-500', 'text-green-500'); }));
+        
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', (e) => { const filter = e.currentTarget.dataset.filter; e.currentTarget.classList.toggle('active'); userPreferences.has(filter) ? userPreferences.delete(filter) : userPreferences.add(filter); }));
+        
+        document.getElementById('allergy-input').addEventListener('input', (e) => { userAllergies = new Set(e.target.value.split(',').map(a => a.trim().toLowerCase()).filter(Boolean)); });
+        
+        const weeklyBtn = document.getElementById('planner-view-weekly'), dailyBtn = document.getElementById('planner-view-daily');
+        weeklyBtn.addEventListener('click', () => { currentPlannerView = 'weekly'; weeklyBtn.classList.add('bg-white', 'text-green-500', 'shadow'); dailyBtn.classList.remove('bg-white', 'text-green-500', 'shadow'); document.getElementById('weekly-planner-container').classList.remove('hidden'); document.getElementById('daily-planner-container').classList.add('hidden'); renderPlanner(); });
+        dailyBtn.addEventListener('click', () => { currentPlannerView = 'daily'; dailyBtn.classList.add('bg-white', 'text-green-500', 'shadow'); weeklyBtn.classList.remove('bg-white', 'text-green-500', 'shadow'); document.getElementById('daily-planner-container').classList.remove('hidden'); document.getElementById('weekly-planner-container').classList.add('hidden'); renderPlanner(); });
+
+        document.querySelectorAll('input[name="payment-method"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const creditCardDetails = document.getElementById('credit-card-details');
+                creditCardDetails.style.display = (e.target.id === 'credit-card-radio' && e.target.checked) ? 'block' : 'none';
+            });
+        });
+    }
+    //<-- FIN DEL SCRIPT COMPLETO -->
+    </script>
+</body>
+</html>
